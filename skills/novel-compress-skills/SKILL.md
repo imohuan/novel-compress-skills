@@ -1,6 +1,10 @@
 ---
 name: novel-toolkit
-description: Use when the user provides a large TXT novel file and wants to compress/adapt it, extract key information, or build a story bible. Triggers: "压缩小说", "改编长篇", "小说精简", "故事线", "小说提炼", "剧情圣经", "生成有声小说", "TTS", "配音", "对话配音", "小说配音"
+description: >
+  Use when the user provides a large TXT novel file and wants to compress/adapt it,
+  extract key information, or build a story bible. Triggers: compress novel, adapt long-form fiction,
+  novel simplification, storyline extraction, story bible, audiobook generation, TTS, voice dubbing,
+  dialogue dubbing, novel dubbing, character voice acting.
 ---
 
 # 小说处理工具集
