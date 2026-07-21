@@ -1,0 +1,464 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>语音调谐器</title>
+<link href="https://cdn.jsdelivr.net/npm/@fontsource/geist@5.2.9/400.css" rel="stylesheet">
+<link href="https://cdn.jsdelivr.net/npm/@fontsource/geist@5.2.9/600.css" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500&amp;display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet">
+<script type="importmap">{"imports":{"vue":"https://cdn.jsdelivr.net/npm/vue@3/dist/vue.esm-browser.js"}}</script>
+<script src="https://cdn.tailwindcss.com?plugins=forms"></script>
+<script>tailwind.config = { theme: { extend: { colors: { primary: "#000000", "on-primary": "#ffffff", secondary: "#5f5e61", "on-secondary": "#ffffff", tertiary: "#000000", error: "#ba1a1a", "on-error": "#ffffff", background: "#f9f9fa", surface: "#f9f9fa", "surface-container-lowest": "#ffffff", "surface-container-low": "#f3f3f4", "surface-container": "#eeeeef", "surface-container-high": "#e8e8e9", "surface-container-highest": "#e2e2e3", "surface-variant": "#e2e2e3", "on-surface": "#1a1c1d", "on-surface-variant": "#47464a", "on-background": "#1a1c1d", outline: "#78767b", "outline-variant": "#c8c5ca", "secondary-container": "#e4e1e5", "on-secondary-container": "#656467", "error-container": "#ffdad6", "on-error-container": "#93000a", success: "#2e7d32", "on-success": "#ffffff", "success-container": "#d4edda", "on-success-container": "#1b5e20" }, borderRadius: { DEFAULT: "0.125rem", lg: "0.25rem", xl: "0.5rem", full: "0.75rem" }, spacing: { xs: "0.25rem", sm: "0.5rem", md: "1rem", lg: "1.5rem", xl: "2rem", gutter: "16px", margin: "24px" }, fontFamily: { display: ["Geist"], "headline-lg": ["Geist"], "headline-lg-mobile": ["Geist"], "headline-md": ["Geist"], "headline-sm": ["Geist"], "body-lg": ["Geist"], "body-sm": ["Geist"], "body-md": ["Geist"], "label-md": ["JetBrains Mono"] }, fontSize: { display: ["36px", { lineHeight: "40px", letterSpacing: "-0.02em", fontWeight: "600" }], "headline-lg": ["24px", { lineHeight: "32px", letterSpacing: "-0.02em", fontWeight: "600" }], "headline-lg-mobile": ["20px", { lineHeight: "28px", fontWeight: "600" }], "headline-md": ["20px", { lineHeight: "28px", letterSpacing: "-0.01em", fontWeight: "600" }], "headline-sm": ["16px", { lineHeight: "24px", fontWeight: "600" }], "body-lg": ["16px", { lineHeight: "24px", fontWeight: "400" }], "body-sm": ["12px", { lineHeight: "16px", fontWeight: "400" }], "body-md": ["14px", { lineHeight: "20px", fontWeight: "400" }], "label-md": ["12px", { lineHeight: "16px", letterSpacing: "0.02em", fontWeight: "500" }] } } } }</script>
+<style>
+  body { font-family: "Geist", sans-serif }
+  .material-symbols-outlined {
+    font-variation-settings: "FILL" 0, "wght" 400, "GRAD" 0, "opsz" 24;
+    font-size: 18px;
+    display: inline-block;
+    vertical-align: middle
+  }
+  .icon-filled { font-variation-settings: "FILL" 1, "wght" 400, "GRAD" 0, "opsz" 24 !important }
+  .pro-shadow { box-shadow: 0 4px 12px rgba(0,0,0,0.04) }
+  .scrollbar-hide::-webkit-scrollbar { display: none }
+  .scrollbar-hide { -ms-overflow-style: none; scrollbar-width: none }
+  [v-cloak] { display: none }
+  .spinner {
+    animation: spin .8s linear infinite
+  }
+  @keyframes spin {
+    to { transform: rotate(360deg) }
+  }
+</style>
+</head>
+
+<body class="bg-background text-on-surface">
+<div id="app" v-cloak class="min-h-screen bg-surface-container-low flex flex-col">
+
+  <!-- Header -->
+  <header class="h-12 bg-surface-container-lowest border-b border-outline-variant flex items-center justify-between px-margin shrink-0">
+    <div class="flex items-center gap-sm">
+      <div class="h-7 w-7 rounded-lg bg-primary flex items-center justify-center text-on-primary">
+        <span class="material-symbols-outlined icon-filled text-[18px]">graphic_eq</span>
+      </div>
+      <h1 class="font-headline-sm text-headline-sm text-primary">语音调谐器</h1>
+      <span class="font-label-md text-label-md px-2 py-0.5 rounded bg-surface-container text-primary border border-outline-variant">{{ roles.length }} 个角色</span>
+    </div>
+    <div class="flex items-center gap-sm">
+      <!-- URL 下拉 -->
+      <div class="relative">
+        <button @click="toggleDropdown('url')" class="inline-flex items-center gap-xs px-3 py-1.5 text-secondary font-label-md text-label-md rounded-lg hover:bg-surface-container-low transition-colors">
+          <span class="material-symbols-outlined text-[16px]">link</span>
+          <span class="font-body-sm text-body-sm text-secondary max-w-[200px] truncate hidden sm:inline">{{ voxUrlLabel || '设置地址' }}</span>
+          <span class="material-symbols-outlined text-[14px] text-outline" :class="dropdowns.url ? 'rotate-180' : ''" style="transition: transform 200ms">expand_more</span>
+        </button>
+        <div v-if="dropdowns.url" class="absolute right-0 top-full mt-1 w-80 bg-surface-container-lowest border border-outline-variant rounded-xl p-md z-50 pro-shadow" @click.stop>
+          <label class="font-label-md text-label-md font-semibold text-primary block mb-1">VoxCPM2 地址</label>
+          <input v-model="voxUrl" class="w-full px-3 py-1.5 font-label-md text-label-md bg-surface-container-low border border-outline-variant rounded-lg focus:ring-1 focus:ring-primary focus:border-primary placeholder:text-outline outline-none transition-all" placeholder="http://host:8808" @keyup.enter="saveVoxUrl">
+          <p class="font-body-sm text-body-sm text-on-surface-variant mt-1">默认: {{ defaultVoxUrl }}</p>
+          <div class="flex gap-xs mt-sm">
+            <button @click="saveVoxUrl" :disabled="savingUrl" class="inline-flex items-center gap-xs px-3 py-1.5 bg-primary text-on-primary font-label-md text-label-md rounded-lg hover:opacity-90 transition-opacity disabled:opacity-30">
+              <span v-if="savingUrl" class="spinner inline-block w-3.5 h-3.5 border-2 border-on-primary/30 border-t-on-primary rounded-full"></span>
+              {{ savingUrl ? '保存中...' : '应用' }}
+            </button>
+            <button @click="resetVoxUrl" class="inline-flex items-center gap-xs px-3 py-1.5 bg-surface-container text-primary font-label-md text-label-md rounded-lg hover:bg-surface-container-high transition-colors border border-outline-variant">重置</button>
+          </div>
+        </div>
+      </div>
+      <!-- 参数下拉 -->
+      <div class="relative">
+        <button @click="toggleDropdown('params')" class="inline-flex items-center gap-xs px-3 py-1.5 text-secondary font-label-md text-label-md rounded-lg hover:bg-surface-container-low transition-colors">
+          <span class="material-symbols-outlined text-[16px]">tune</span>
+          <span class="font-body-sm text-body-sm text-secondary hidden sm:inline">参数</span>
+          <span class="material-symbols-outlined text-[14px] text-outline" :class="dropdowns.params ? 'rotate-180' : ''" style="transition: transform 200ms">expand_more</span>
+        </button>
+        <div v-if="dropdowns.params" class="absolute right-0 top-full mt-1 w-64 bg-surface-container-lowest border border-outline-variant rounded-xl p-md z-50 pro-shadow" @click.stop>
+          <label class="font-label-md text-label-md font-semibold text-primary mb-sm block">生成参数</label>
+          <div class="space-y-sm">
+            <div>
+              <div class="flex items-center justify-between mb-xs">
+                <label class="font-body-sm text-body-sm text-on-surface-variant">CFG</label>
+                <span class="font-label-md text-label-md text-primary">{{ params.cfg }}</span>
+              </div>
+              <input type="range" min="1" max="3" step="0.1" v-model.number="params.cfg" @change="saveParams" class="w-full h-1 accent-primary">
+            </div>
+            <div>
+              <div class="flex items-center justify-between mb-xs">
+                <label class="font-body-sm text-body-sm text-on-surface-variant">DIT 步数</label>
+                <span class="font-label-md text-label-md text-primary">{{ params.di }}</span>
+              </div>
+              <input type="range" min="1" max="50" step="1" v-model.number="params.di" @change="saveParams" class="w-full h-1 accent-primary">
+            </div>
+            <div class="flex items-center justify-between py-1 cursor-pointer" @click="toggleParam('dn')">
+              <span class="font-body-sm text-body-sm text-on-surface-variant">去噪</span>
+              <button type="button" role="switch" :aria-checked="params.dn" class="relative inline-flex flex-shrink-0 items-center rounded-full p-0.5 transition-colors duration-200 focus:outline-none focus:ring-1 focus:ring-primary w-[34px] h-5 cursor-pointer" :class="params.dn ? 'bg-primary' : 'bg-outline'">
+                <span class="inline-block transform rounded-full bg-white shadow transition duration-200 ease-in-out h-3.5 w-3.5" :class="params.dn ? 'translate-x-4' : 'translate-x-0'"></span>
+              </button>
+            </div>
+            <div class="flex items-center justify-between py-1 cursor-pointer" @click="toggleParam('nm')">
+              <span class="font-body-sm text-body-sm text-on-surface-variant">归一化</span>
+              <button type="button" role="switch" :aria-checked="params.nm" class="relative inline-flex flex-shrink-0 items-center rounded-full p-0.5 transition-colors duration-200 focus:outline-none focus:ring-1 focus:ring-primary w-[34px] h-5 cursor-pointer" :class="params.nm ? 'bg-primary' : 'bg-outline'">
+                <span class="inline-block transform rounded-full bg-white shadow transition duration-200 ease-in-out h-3.5 w-3.5" :class="params.nm ? 'translate-x-4' : 'translate-x-0'"></span>
+              </button>
+            </div>
+            <div class="flex items-center justify-between py-1 cursor-pointer" @click="toggleParam('uc')">
+              <span class="font-body-sm text-body-sm text-on-surface-variant">终极克隆</span>
+              <button type="button" role="switch" :aria-checked="params.uc" class="relative inline-flex flex-shrink-0 items-center rounded-full p-0.5 transition-colors duration-200 focus:outline-none focus:ring-1 focus:ring-primary w-[34px] h-5 cursor-pointer" :class="params.uc ? 'bg-primary' : 'bg-outline'">
+                <span class="inline-block transform rounded-full bg-white shadow transition duration-200 ease-in-out h-3.5 w-3.5" :class="params.uc ? 'translate-x-4' : 'translate-x-0'"></span>
+              </button>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </header>
+
+  <!-- 错误提示 -->
+  <div v-if="errorMessage" class="max-w-[1200px] w-full mx-auto mt-md px-margin">
+    <div class="bg-error-container border border-error/20 rounded-lg px-md py-sm flex items-start gap-sm">
+      <span class="material-symbols-outlined icon-filled text-[18px] text-error shrink-0">error</span>
+      <p class="font-body-sm text-body-sm text-on-error-container leading-relaxed flex-1 min-w-0 break-all">{{ errorMessage }}</p>
+      <button @click="errorMessage = ''" class="w-6 h-6 flex items-center justify-center rounded text-error hover:bg-error/10 shrink-0">
+        <span class="material-symbols-outlined text-[14px]">close</span>
+      </button>
+    </div>
+  </div>
+
+  <!-- 主内容 -->
+  <div class="flex-1 flex gap-md max-w-[1280px] w-full mx-auto px-margin py-md pb-20">
+    <main class="flex-1 min-w-0">
+      <div class="grid grid-cols-1 md:grid-cols-2 gap-md">
+        <div v-for="role in roles" :key="role.role" class="bg-surface-container-lowest border border-outline-variant rounded-xl p-md flex flex-col gap-sm">
+          <div class="flex items-start justify-between gap-sm">
+            <div class="min-w-0 flex-1">
+              <h3 class="font-headline-sm text-headline-sm text-primary font-semibold truncate">{{ role.role }}</h3>
+              <p class="font-body-sm text-body-sm text-on-surface-variant line-clamp-2 mt-0.5 leading-relaxed">{{ role.desc || "暂无描述" }}</p>
+            </div>
+            <div class="flex gap-1 shrink-0">
+              <button @click="regenerate(role.role)" title="重新生成" class="w-7 h-7 flex items-center justify-center rounded-lg text-secondary hover:bg-surface-container-low hover:text-primary transition-colors">
+                <span class="material-symbols-outlined text-[16px]">refresh</span>
+              </button>
+              <button @click="openImport(role.role)" title="导入音频" class="w-7 h-7 flex items-center justify-center rounded-lg text-secondary hover:bg-surface-container-low hover:text-primary transition-colors">
+                <span class="material-symbols-outlined text-[16px]">upload_file</span>
+              </button>
+            </div>
+          </div>
+
+          <div v-if="role.audio_path" class="bg-surface-container-low rounded-lg px-sm py-2">
+            <div v-if="role._loading" class="flex items-center justify-center gap-xs h-8">
+              <span class="spinner inline-block w-3.5 h-3.5 border-2 border-outline-variant border-t-primary rounded-full"></span>
+              <span class="font-body-sm text-body-sm text-on-surface-variant">音频加载中…</span>
+            </div>
+            <audio :key="'a-' + role.role + '-' + (role._v || 0)" :src="`/api/audio/${encodeURIComponent(role.role)}?v=${role._v || 0}`" controls @canplay="role._loading = false" class="w-full h-8 accent-primary" :class="{ 'hidden': role._loading }" style="border-radius:0"></audio>
+          </div>
+          <div v-else class="bg-surface-container-low rounded-lg px-sm py-3 text-center">
+            <span class="font-body-sm text-body-sm text-on-surface-variant">暂无音频</span>
+          </div>
+
+          <div class="space-y-sm">
+            <div>
+              <label class="font-label-md text-label-md font-medium text-primary block mb-1">语音描述</label>
+              <textarea v-model="role.desc" rows="2" class="w-full px-3 py-1.5 font-label-md text-label-md bg-surface-container-low border border-outline-variant rounded-lg focus:ring-1 focus:ring-primary focus:border-primary placeholder:text-outline outline-none transition-all resize-none" :placeholder="'描述 ' + role.role + ' 的声音...'"></textarea>
+            </div>
+            <div>
+              <label class="font-label-md text-label-md font-medium text-primary block mb-1">参考文本</label>
+              <textarea v-model="role.text" rows="3" class="w-full px-3 py-1.5 font-label-md text-label-md bg-surface-container-low border border-outline-variant rounded-lg focus:ring-1 focus:ring-primary focus:border-primary placeholder:text-outline outline-none transition-all resize-none"></textarea>
+            </div>
+            <button @click="regenerateWithEdits(role.role)" class="w-full inline-flex items-center justify-center gap-xs px-3 py-1.5 bg-primary text-on-primary font-label-md text-label-md rounded-lg hover:opacity-90 transition-opacity">应用编辑并重新生成</button>
+          </div>
+        </div>
+      </div>
+      <div v-if="roles.length === 0" class="text-center py-xl">
+        <span class="material-symbols-outlined text-[48px] text-outline-variant">mic_off</span>
+        <p class="font-body-md text-body-md text-on-surface-variant mt-sm">暂无角色</p>
+      </div>
+    </main>
+
+    <!-- 任务队列 -->
+    <aside class="w-72 shrink-0">
+      <div class="sticky top-md bg-surface-container-lowest border border-outline-variant rounded-xl overflow-hidden">
+        <div class="px-md py-sm border-b border-outline-variant flex items-center justify-between">
+          <h3 class="font-headline-sm text-headline-sm text-primary">任务队列</h3>
+          <span v-if="queueCount > 0" class="font-label-md text-label-md px-2 py-0.5 rounded bg-secondary-container text-on-secondary-container border border-outline-variant">{{ queueCount }}</span>
+        </div>
+        <div class="max-h-[480px] overflow-y-auto scrollbar-hide">
+          <div v-if="processingTask" class="px-md py-sm border-b border-outline-variant bg-surface-container-low">
+            <div class="flex items-center gap-sm">
+              <span class="flex gap-0.5 shrink-0">
+                <span class="w-1.5 h-1.5 rounded-full bg-primary inline-block animate-pulse"></span>
+                <span class="w-1.5 h-1.5 rounded-full bg-primary inline-block animate-pulse" style="animation-delay: 150ms"></span>
+                <span class="w-1.5 h-1.5 rounded-full bg-primary inline-block animate-pulse" style="animation-delay: 300ms"></span>
+              </span>
+              <div class="min-w-0 flex-1">
+                <p class="font-label-md text-label-md text-primary truncate">{{ processingTask.role }}</p>
+                <p class="font-body-sm text-body-sm text-on-surface-variant">生成中…</p>
+              </div>
+            </div>
+          </div>
+          <div v-for="task in queuedTasks" :key="'q-' + task.id" class="px-md py-sm border-b border-outline-variant flex items-center gap-sm">
+            <span class="material-symbols-outlined text-[16px] text-outline shrink-0">hourglass_empty</span>
+            <div class="min-w-0 flex-1">
+              <p class="font-label-md text-label-md text-primary truncate">{{ task.role }}</p>
+              <p class="font-body-sm text-body-sm text-on-surface-variant">排队中 #{{ task.id }}</p>
+            </div>
+          </div>
+          <div v-for="task in finishedTasks" :key="'d-' + task.id" class="px-md py-sm border-b border-outline-variant opacity-60 flex items-center gap-sm">
+            <span v-if="task.status === 'done'" class="material-symbols-outlined icon-filled text-[16px] text-success shrink-0">check_circle</span>
+            <span v-else class="material-symbols-outlined icon-filled text-[16px] text-error shrink-0">error</span>
+            <div class="min-w-0 flex-1">
+              <p class="font-label-md text-label-md text-primary truncate">{{ task.role }}</p>
+              <p v-if="task.status === 'done'" class="font-body-sm text-body-sm text-on-surface-variant">{{ task.duration ? formatTime(task.duration) : '已完成' }}</p>
+              <p v-else class="font-body-sm text-body-sm text-error truncate">{{ (task.error || '').slice(0, 40) }}</p>
+            </div>
+          </div>
+          <div v-if="queue.length === 0" class="px-md py-lg text-center">
+            <span class="material-symbols-outlined text-[28px] text-outline-variant">queue_music</span>
+            <p class="font-body-sm text-body-sm text-on-surface-variant mt-xs">点击角色卡片上的重新生成按钮开始</p>
+          </div>
+        </div>
+      </div>
+    </aside>
+  </div>
+
+  <!-- 底部状态条 -->
+  <footer class="fixed bottom-0 left-0 right-0 h-12 bg-surface-container-lowest border-t border-outline-variant px-margin flex items-center justify-between shrink-0 z-10">
+    <div class="flex items-center gap-sm">
+      <span class="font-label-md text-label-md text-secondary">{{ statusText }}</span>
+    </div>
+    <button @click="finish" class="inline-flex items-center gap-xs px-3 py-1.5 bg-primary text-on-primary font-label-md text-label-md rounded-lg hover:opacity-90 transition-opacity">
+      <span class="material-symbols-outlined icon-filled text-[16px]">check</span>完成
+    </button>
+  </footer>
+  <input id="audio-file-input" type="file" accept="audio/*" @change="handleFileChange" class="hidden">
+  <div v-if="dropdowns.url || dropdowns.params" class="fixed inset-0 z-40" @click="closeDropdowns"></div>
+</div>
+
+<script type="module">
+import { createApp, ref, reactive, computed, onMounted, nextTick } from "vue";
+
+const delay = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
+
+createApp({
+  setup() {
+    const roles = ref([]);
+    const params = reactive({ cfg: 2, di: 10, dn: false, nm: false, uc: false });
+    const voxUrl = ref("");
+    const defaultVoxUrl = ref("");
+    const queue = ref([]);
+    const importingRole = ref(null);
+    const dropdowns = reactive({ url: false, params: false });
+    const errorMessage = ref("");
+    const statusText = ref("就绪");
+    const savingUrl = ref(false);
+    const pendingBumps = reactive({}); // {roleName: true} 等待任务完成即刷新
+
+    async function requestJSON(url, options) {
+      const response = await fetch(url, options);
+      const contentType = response.headers.get("content-type") || "";
+      const body = contentType.includes("application/json") ? await response.json() : await response.text();
+      if (!response.ok) {
+        const message = typeof body === "string" ? body : body.error || body.message || response.statusText;
+        throw new Error(`${response.status} ${message}`.trim());
+      }
+      return body;
+    }
+
+    function showError(error) {
+      errorMessage.value = error instanceof Error ? error.message : String(error);
+    }
+
+    /* loadRoles: 把 _v（版本号）存在每个 role 对象上，audio 变化时 +1 */
+    async function loadRoles() {
+      const oldMap = new Map(roles.value.map(r => [r.role, r]));
+      const fresh = await requestJSON("/api/roles");
+      roles.value = fresh.map(r => {
+        const old = oldMap.get(r.role);
+        let v = old?._v || 0;
+        // audio_path 变了就 bump 版本号
+        if (old && old.audio_path !== r.audio_path) v++;
+        r._v = v;
+        return r;
+      });
+    }
+
+    /* bumpRoleAudio: 直接改数组里某个 role 的 _v，同时标记加载中 */
+    function bumpRoleAudio(roleName) {
+      const r = roles.value.find(item => item.role === roleName);
+      if (r) { r._v = (r._v || 0) + 1; r._loading = true; }
+    }
+
+    async function loadParams() {
+      Object.assign(params, await requestJSON("/api/params"));
+    }
+
+    async function loadSettings() {
+      const settings = await requestJSON("/api/settings");
+      voxUrl.value = settings.vox_url || "";
+      defaultVoxUrl.value = settings.vox_url || "";
+    }
+
+    async function loadQueue() {
+      const result = await requestJSON("/api/queue");
+      queue.value = Array.isArray(result.queue) ? result.queue : [];
+      return result;
+    }
+
+    function formatTime(seconds) {
+      if (seconds === undefined || seconds === null || Number.isNaN(Number(seconds))) return "--";
+      const minutes = Math.floor(Number(seconds) / 60);
+      const remainder = Math.floor(Number(seconds) % 60);
+      return minutes > 0 ? `${minutes}:${String(remainder).padStart(2, "0")}` : `${remainder}s`;
+    }
+
+    async function pollQueue() {
+      while (true) {
+        try {
+          const result = await loadQueue();
+          // 检查等待刷新: 对应角色有 done/error 任务时 bump _v
+          for (const rn of Object.keys(pendingBumps)) {
+            if (!pendingBumps[rn]) continue;
+            if ((result.queue || []).some(t => t.role === rn && ["done", "error"].includes(t.status))) {
+              bumpRoleAudio(rn);
+              pendingBumps[rn] = false;
+            }
+          }
+          errorMessage.value = "";
+        } catch (error) {
+          showError(error);
+          await delay(2000);
+          continue;
+        }
+        const finished = queue.value.length > 0 && queue.value.every((task) => ["done", "error"].includes(task.status));
+        await delay(finished || queue.value.length === 0 ? 500 : 1000);
+      }
+    }
+
+    async function saveParams() {
+      try {
+        await requestJSON("/api/params", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ cfg: params.cfg, dit_steps: params.di, denoise: params.dn, normalize: params.nm, use_ultimate_clone: params.uc })
+        });
+        errorMessage.value = "";
+      } catch (error) { showError(error); }
+    }
+
+    async function saveVoxUrl() {
+      savingUrl.value = true;
+      try {
+        await requestJSON("/api/settings/url", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ url: voxUrl.value })
+        });
+        closeDropdowns();
+        errorMessage.value = "";
+      } catch (error) { showError(error); }
+      finally { savingUrl.value = false; }
+    }
+
+    function resetVoxUrl() {
+      voxUrl.value = defaultVoxUrl.value;
+      saveVoxUrl();
+    }
+
+    function toggleParam(name) {
+      params[name] = !params[name];
+      saveParams();
+    }
+
+    async function regenerate(roleName) {
+      try {
+        await requestJSON("/api/regenerate", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ role: roleName, desc: roles.value.find(r => r.role === roleName)?.desc || "", text: roles.value.find(r => r.role === roleName)?.text || "", params: {} })
+        });
+        errorMessage.value = "";
+        // 标记等待 pollQueue 看到任务完成→刷新
+        pendingBumps[roleName] = true;
+      } catch (error) { showError(error); }
+    }
+
+    async function regenerateWithEdits(roleName) {
+      const role = roles.value.find((item) => item.role === roleName);
+      if (!role) return;
+      try {
+        await requestJSON("/api/role", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ role: role.role, desc: role.desc, text: role.text })
+        });
+        await regenerate(roleName);
+      } catch (error) { showError(error); }
+    }
+
+    function openImport(roleName) {
+      importingRole.value = roleName;
+      nextTick(() => document.getElementById("audio-file-input")?.click());
+    }
+
+    async function handleFileChange(event) {
+      const file = event.target.files?.[0];
+      if (!file || !importingRole.value) return;
+      try {
+        const formData = new FormData();
+        formData.append("role", importingRole.value);
+        formData.append("file", file);
+        await requestJSON("/api/import", { method: "POST", body: formData });
+        bumpRoleAudio(importingRole.value);
+        errorMessage.value = "";
+      } catch (error) { showError(error); }
+      finally { importingRole.value = null; event.target.value = ""; }
+    }
+
+    async function finish() {
+      try {
+        await requestJSON("/api/done", { method: "POST" });
+        document.body.innerHTML = '<div style="display:flex;align-items:center;justify-content:center;height:100vh;font-family:Geist,sans-serif;background:#f3f3f4;color:#1a1c1d;flex-direction:column;gap:1rem"><span class="material-symbols-outlined" style="font-size:48px;color:#2e7d32">check_circle</span><p style="font-size:18px;font-weight:600">完成</p><p style="font-size:14px;color:#47464a">请关闭此窗口</p></div>';
+      } catch (error) { showError(error); }
+    }
+
+    function toggleDropdown(name) { dropdowns[name] = !dropdowns[name]; }
+    function closeDropdowns() { dropdowns.url = false; dropdowns.params = false; }
+
+    const voxUrlLabel = computed(() => voxUrl.value && voxUrl.value.length > 30 ? `${voxUrl.value.slice(0, 30)}...` : voxUrl.value || "");
+    const queueCount = computed(() => queue.value.filter((task) => ["queued", "processing"].includes(task.status)).length);
+    const processingTask = computed(() => queue.value.find((task) => task.status === "processing"));
+    const queuedTasks = computed(() => queue.value.filter((task) => task.status === "queued"));
+    const finishedTasks = computed(() => queue.value.filter((task) => ["done", "error"].includes(task.status)));
+
+    onMounted(async () => {
+      try {
+        await loadRoles();
+        await loadParams();
+        await loadSettings();
+        await loadQueue();
+        errorMessage.value = "";
+        statusText.value = `已加载 ${roles.value.length} 个角色`;
+      } catch (error) {
+        showError(error);
+        statusText.value = "加载失败";
+      }
+      pollQueue();
+    });
+
+    return {
+      roles, params, voxUrl, defaultVoxUrl, voxUrlLabel, queue, dropdowns,
+      errorMessage, statusText, savingUrl, queueCount, processingTask, queuedTasks, finishedTasks,
+      toggleDropdown, closeDropdowns, toggleParam, saveParams, saveVoxUrl, resetVoxUrl,
+      formatTime, regenerate, regenerateWithEdits, openImport, handleFileChange, finish,
+    };
+  }
+}).mount("#app");
+</script>
+</body>
+</html>
+    };
+  }
+}).mount("#app");
+</script>
+</body>
+</html>
